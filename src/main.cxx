@@ -110,72 +110,7 @@ void sort_circles(Container &circles)
       });
 }
 
-float sum_second_container_radii(const Container &circles)
-{
-  auto accum = [](float sum, const CurvePtr &circle) {
-    return sum + reinterpret_cast<Circle*>(circle.get())->get_radius();
-  };
-
-  if (circles.size() == 0)
-    return 0;
-  std::vector<std::future<float>> futures;
-  int t_count = std::min(static_cast<unsigned int>(circles.size()),
-      std::thread::hardware_concurrency());
-  t_count = t_count == 0 ? 8 : t_count;
-  futures.reserve(t_count);
-
-  int count_per_thread = circles.size() / t_count;
-  auto first = circles.begin();
-  for (int i = 1; i < t_count; i++)
-  {
-    auto process_sum = [](auto first, auto last) {
-      float tmp_sum = 0;
-      for (; first != last; ++first)
-        tmp_sum += reinterpret_cast<Circle*>(first->get())->get_radius();
-      return tmp_sum;
-    };
-    auto last = std::next(first, count_per_thread);
-    futures.push_back(std::async(process_sum, first, last));
-    first = last;
-  }
-  float last_sum = std::accumulate(first, circles.end(), 0.0f, accum);
-  std::clog << circles.end() - first << std::endl;
-  // sum = std::accumulate(first, circles.end(), 0.0f, accum);
-  float sum = 0;
-  sum += last_sum;
-  for (auto &fut : futures)
-    sum += fut.get();
-
-  // sum += last_sum;
-  std::clog << circles.end() - first << std::endl;
-
-  return sum;
-}
-
-//FIXME
-float sum_single_manual(const Container &circles)
-{
-  int t_count = std::thread::hardware_concurrency();
-  int count_per_thread = circles.size() / t_count;
-  float sum = 0;
-  for (int i = 0; i < (int)circles.size(); i++)
-  {
-    if (!(i % count_per_thread) && i != 0)
-    {
-      std::cout << std::format("Manual: [{}] {}\n",
-        i / count_per_thread,
-        sum
-      );
-    }
-    sum += reinterpret_cast<Circle*>(circles[i].get())->get_radius();
-  }
-  // for (const auto &circle : circles)
-  //   sum += reinterpret_cast<Circle*>(circle.get())->get_radius();
-  return sum;
-}
-
-//FIXME
-float sum_single_thread(const Container &circles)
+float sum_circles_radii(const Container &circles)
 {
   auto accum = [](float sum, const CurvePtr &circle) {
     return sum + reinterpret_cast<Circle*>(circle.get())->get_radius();
@@ -183,41 +118,13 @@ float sum_single_thread(const Container &circles)
   return std::accumulate(circles.begin(), circles.end(), 0.0f, accum);
 }
 
-//FIXME
-float sum_simulate_multithread(const Container &circles)
-{
-  const auto accum = [](const float &a, const CurvePtr &circle) {
-    return a + reinterpret_cast<Circle*>(circle.get())->get_radius();
-  };
-  int t_count = std::thread::hardware_concurrency();
-  const int count_per_thread = circles.size() / t_count;
-  auto first = circles.begin();
-  float sum = 0;
-  for (int i = 1; i <= t_count; i++)
-  {
-    auto last = std::next(first, count_per_thread);
-    sum += std::accumulate(first, last, 0.0f, accum);
-    first = last;
-    std::clog << std::format("Sim multithread: [{}] {}\n", i, sum);
-  }
-  sum += std::accumulate(first, circles.end(), 0.0f, accum);
-  return sum;
-}
-
 int main()
 {
   Container cont = populate_container(124126);
-  // print_point_and_derivative(cont);
+  print_point_and_derivative(cont);
   Container circles = populate_circle_container(cont);
   sort_circles(circles);
-  std::cout << std::format(
-      "Multithread sum:           {:10.0f}\n"
-      "Simulated multithread sum: {:10.0f}\n"
-      "Single thread sum:         {:10.0f}\n"
-      "Single manual sum:         {:10.0f}\n",
-      sum_second_container_radii(circles),
-      sum_simulate_multithread(circles),
-      sum_single_thread(circles),
-      sum_single_manual(circles));
+  float sum = sum_circles_radii(circles);
+  (void)sum;
   return 0;
 }
